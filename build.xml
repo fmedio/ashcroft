@@ -1,0 +1,84 @@
+<project name="Ashcroft" default="jar" basedir=".">
+
+    <property environment="ENV"/>
+    <property name="build" value="${ENV.DAMAGECONTROL_BUILD_LABEL}"/>
+    <property name="version" value="0.1.${build}"/>
+
+    <path id="main-classes">
+        <pathelement location="lib/qdox-1.6-SNAPSHOT.jar"/>
+    </path>
+
+    <path id="test-classes">
+        <path refid="main-classes"/>
+        <pathelement location="target/classes"/>
+    </path>
+
+    <target name="clean">
+        <delete dir="target"/>
+    </target>
+
+    <target name="jar" depends="compile, test, fail-if-failed">
+        <jar basedir="target/classes" jarfile="target/ashcroft-${version}.jar"/>
+    </target>
+
+    <target name="compile">
+        <mkdir dir="target/classes"/>
+        <javac srcdir="src/main" destdir="target/classes" debug="true">
+            <classpath refid="main-classes"/>
+        </javac>
+    </target>
+
+    <target name="compile-tests">
+        <mkdir dir="target/test-classes"/>
+        <javac srcdir="src/test" destdir="target/test-classes">
+            <classpath refid="test-classes"/>
+        </javac>
+    </target>
+
+    <target name="test" depends="compile-tests, copy-test-sources">
+        <mkdir dir="target/test-reports"/>
+        <junit printsummary="yes" failureproperty="tests.failed">
+            <formatter type="plain"/>
+            <classpath>
+                <pathelement location="target/classes"/>
+                <pathelement location="target/test-classes"/>
+                <pathelement location="lib/qdox-1.6-SNAPSHOT.jar"/>
+                <!-- These two are needed in order to build on a headless environment -->
+                <pathelement location="lib/pja-2.5.jar"/>
+                <!-- These two are needed in order to build on JDK1.3 -->
+                <pathelement location="${ant.home}/lib/xercesImpl.jar"/>
+                <pathelement location="${ant.home}/lib/xml-apis.jar"/>
+            </classpath>
+
+            <!-- See http://jira.codehaus.org/browse/ASH-3 and http://www.eteks.com/pja/doc/com/eteks/awt/PJAToolkit.html -->
+            <jvmarg value="-Dawt.toolkit=com.eteks.awt.PJAToolkit"/>
+            <jvmarg value="-Djava.awt.graphicsenv=com.eteks.java2d.PJAGraphicsEnvironment"/>
+            <!--jvmarg value="-Djava.awt.fonts=WTF"/-->
+
+            <jvmarg value="-Djava.security.manager=com.thoughtworks.ashcroft.runtime.JohnAshcroft"/>
+            <batchtest fork="yes" todir="target/test-reports">
+                <fileset dir="src/test">
+                    <include name="**/runtime/**/*"/>
+                </fileset>
+            </batchtest>
+ 
+            <!-- these tests actually read from files, so ashcroft must be disabled (no fork thus ignoring -D) -->
+            <batchtest fork="no" todir="target/test-reports">
+                <fileset dir="src/test">
+                    <include name="**/analysis/**/*"/>
+                </fileset>
+            </batchtest>
+        </junit>
+    </target>
+
+    <target name="copy-test-sources">
+        <copy todir="target/test-classes">
+            <fileset dir="src/test"/>
+        </copy>
+    </target>
+
+    <target name="fail-if-failed" if="tests.failed">
+        <fail>There were test failures</fail>
+    </target>
+ 
+</project>
